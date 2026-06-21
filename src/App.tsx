@@ -1,7 +1,7 @@
 import { lazy, Suspense, type FormEvent, useEffect, useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { AlertTriangle, CloudRain, Navigation, ThermometerSun, Wind } from 'lucide-react';
+import { AlertTriangle, CloudRain, Navigation, RotateCcw, ThermometerSun, Wind } from 'lucide-react';
 import type { GeocodeResult } from './weather';
 
 const WeatherCharts = lazy(() => import('./WeatherCharts'));
@@ -159,15 +159,31 @@ export default function App() {
           </label>
           <label>
             Departure
-            <input
-              type="datetime-local"
-              value={departAt}
-              onChange={(event) => {
-                setHasChangedDepartAt(true);
-                setDepartAt(event.target.value);
-              }}
-              required
-            />
+            <div className="date-field">
+              <input
+                aria-label="Departure"
+                type="datetime-local"
+                value={departAt}
+                onChange={(event) => {
+                  setHasChangedDepartAt(true);
+                  setDepartAt(event.target.value);
+                }}
+                onFocus={(event) => event.currentTarget.select()}
+                required
+              />
+              <button
+                aria-label="Reset departure time to now"
+                className="date-reset"
+                onClick={() => {
+                  setHasChangedDepartAt(false);
+                  setDepartAt(currentDateTimeLocal());
+                }}
+                title="Reset to now"
+                type="button"
+              >
+                <RotateCcw size={15} aria-hidden="true" />
+              </button>
+            </div>
           </label>
           <button disabled={isPlanningRoute}>{isPlanningRoute ? 'Planning route...' : 'Show route weather'}</button>
           <p className="source-note">Uses Open-Meteo forecasts and the public OSRM demo router.</p>
@@ -333,7 +349,10 @@ function LocationInput({ id, value, onChange, placeholder }: { id: string; value
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        onFocus={() => setIsFocused(true)}
+        onFocus={(event) => {
+          setIsFocused(true);
+          event.currentTarget.select();
+        }}
         onBlur={() => setIsFocused(false)}
         placeholder={placeholder}
         autoComplete="off"
@@ -345,7 +364,7 @@ function LocationInput({ id, value, onChange, placeholder }: { id: string; value
       />
       {showSuggestions ? (
         <div className="location-suggestions" id={`${id}-suggestions`} role="listbox">
-          {isLoading ? <div className="location-status">Searching...</div> : null}
+          {isLoading ? <div className={`location-status${suggestions.length > 0 ? ' location-status-floating' : ''}`}>Searching...</div> : null}
           {suggestions.map((place) => {
             const label = labelPlace(place);
             return (

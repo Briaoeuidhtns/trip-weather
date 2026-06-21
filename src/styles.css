@@ -120,6 +120,35 @@ input:focus {
   position: relative;
 }
 
+.date-field {
+  position: relative;
+}
+
+.date-field input {
+  padding-right: 48px;
+}
+
+.date-reset {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border-radius: 11px;
+  color: #c7d7ef;
+  background: rgba(148, 163, 184, 0.12);
+  transform: translateY(-50%);
+}
+
+.date-reset:hover,
+.date-reset:focus {
+  color: #07111f;
+  background: #67e8f9;
+}
+
 .location-suggestions {
   position: absolute;
   z-index: 10;
@@ -167,6 +196,18 @@ input:focus {
 
 .location-status {
   padding: 12px 14px;
+}
+
+.location-status-floating {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 4px 8px;
+  border: 1px solid rgba(103, 232, 249, 0.24);
+  border-radius: 999px;
+  background: rgba(11, 18, 32, 0.92);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
 }
 
 button {
