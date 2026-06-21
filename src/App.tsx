@@ -25,6 +25,13 @@ type AppSearch = {
   departAt?: string;
 };
 
+type SubmittedRoute = {
+  from: string;
+  to: string;
+  departAt: string;
+  autoDepartAt: boolean;
+};
+
 export function validateAppSearch(search: Record<string, unknown>): AppSearch {
   return {
     from: stringSearchParam(search.from),
@@ -42,9 +49,12 @@ export default function App() {
   const [hasChangedDepartAt, setHasChangedDepartAt] = useState(search.departAt !== undefined);
   const hasRequestedLocation = useRef(false);
 
-  const submittedRoute = search.from && search.to ? { from: search.from, to: search.to, departAt: search.departAt ?? departAt } : null;
+  const submittedRoute = search.from && search.to ? { from: search.from, to: search.to, departAt: search.departAt ?? departAt, autoDepartAt: search.departAt === undefined } : null;
+  const routeWeatherKey = submittedRoute
+    ? ['route-weather', submittedRoute.from, submittedRoute.to, submittedRoute.autoDepartAt ? 'auto' : submittedRoute.departAt]
+    : ['route-weather'];
   const routeWeatherQuery = useQuery({
-    queryKey: ['route-weather', submittedRoute],
+    queryKey: routeWeatherKey,
     queryFn: () => {
       if (!submittedRoute) throw new Error('Route search is missing.');
       return buildRouteWeather(submittedRoute.from, submittedRoute.to, parseDateTimeLocal(submittedRoute.departAt));
@@ -81,6 +91,12 @@ export default function App() {
 
     return () => window.clearInterval(interval);
   }, [hasChangedDepartAt]);
+
+  useEffect(() => {
+    if (!submittedRoute?.autoDepartAt || routeWeatherQuery.data === undefined) return;
+
+    void routeWeatherQuery.refetch();
+  }, [submittedRoute?.autoDepartAt, submittedRoute?.departAt]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
