@@ -24,6 +24,7 @@ type ForecastResponse = {
     apparent_temperature: number[];
     precipitation_probability: number[];
     precipitation: number[];
+    cloud_cover: number[];
     wind_speed_10m: number[];
     weather_code: number[];
   };
@@ -187,7 +188,7 @@ async function fetchForecast(point: RoutePoint): Promise<ForecastResponse> {
   const params = new URLSearchParams({
     latitude: point.lat.toFixed(4),
     longitude: point.lon.toFixed(4),
-    hourly: 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,wind_speed_10m,weather_code',
+    hourly: 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,cloud_cover,wind_speed_10m,weather_code',
     temperature_unit: 'fahrenheit',
     wind_speed_unit: 'mph',
     precipitation_unit: 'inch',
@@ -213,6 +214,7 @@ function mergeWeather(point: RoutePoint, forecast: ForecastResponse, segmentStar
     apparentTemperature: forecast.hourly.apparent_temperature[hourIndex],
     precipitationProbability: forecast.hourly.precipitation_probability[hourIndex],
     precipitation: forecast.hourly.precipitation[hourIndex],
+    cloudCover: forecast.hourly.cloud_cover[hourIndex],
     windSpeed: forecast.hourly.wind_speed_10m[hourIndex],
     weatherCode: forecast.hourly.weather_code[hourIndex],
     segmentHigh,

@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { AlertTriangle, CloudRain, MapPinned, Navigation, ThermometerSun, Wind } from 'lucide-react';
+import { AlertTriangle, CloudRain, Navigation, ThermometerSun, Wind } from 'lucide-react';
 import {
   Area,
   AreaChart,
@@ -102,6 +102,7 @@ export default function App() {
     high: Math.round(point.segmentHigh),
     low: Math.round(point.segmentLow),
     precip: point.precipitationProbability,
+    cloud: point.cloudCover,
     wind: Math.round(point.windSpeed),
   }));
 
@@ -163,20 +164,29 @@ export default function App() {
               <p className="eyebrow">Route</p>
               <h2>{routeWeather.fromLabel} to {routeWeather.toLabel}</h2>
             </div>
-            <div className="timeline">
-              {routeWeather.points.map((point) => (
-                <div className="stop" key={`${point.lat}-${point.lon}-${point.label}`}>
-                  <div className="stop-pin"><MapPinned size={18} /></div>
-                  <div>
-                    <strong>{point.label}</strong>
-                    <span>{formatTime(point.eta)} · {describeWeather(point.weatherCode)}</span>
-                  </div>
-                  <div className="stop-weather">
-                    <b>{Math.round(point.temperature)} F</b>
-                    <span>{point.precipitationProbability}% rain</span>
-                  </div>
-                </div>
-              ))}
+            <div className="route-table-wrap">
+              <table className="route-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Stop</th>
+                    <th scope="col">ETA</th>
+                    <th scope="col">Forecast</th>
+                    <th scope="col">Temp</th>
+                    <th scope="col">Rain</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {routeWeather.points.map((point) => (
+                    <tr key={`${point.lat}-${point.lon}-${point.label}`}>
+                      <th scope="row">{point.label}</th>
+                      <td>{formatTime(point.eta)}</td>
+                      <td>{describeWeather(point.weatherCode)}</td>
+                      <td>{Math.round(point.temperature)} F</td>
+                      <td>{point.precipitationProbability}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </article>
 
@@ -213,6 +223,25 @@ export default function App() {
                   <YAxis stroke="#8ea0bd" domain={[0, 100]} />
                   <Tooltip contentStyle={{ background: '#101827', border: '1px solid #2c3b57' }} />
                   <Area type="monotone" dataKey="precip" name="Precip chance %" stroke="#67e8f9" fill="url(#precip)" strokeWidth={3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </article>
+
+            <article className="panel">
+              <h2>Cloud cover</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={chartData} margin={{ left: -12, right: 12, top: 18, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="cloud-cover" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="5%" stopColor="#c4b5fd" stopOpacity={0.75} />
+                      <stop offset="95%" stopColor="#c4b5fd" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#25324a" />
+                  <XAxis dataKey="eta" stroke="#8ea0bd" />
+                  <YAxis stroke="#8ea0bd" domain={[0, 100]} />
+                  <Tooltip contentStyle={{ background: '#101827', border: '1px solid #2c3b57' }} />
+                  <Area type="monotone" dataKey="cloud" name="Cloud cover %" stroke="#c4b5fd" fill="url(#cloud-cover)" strokeWidth={3} />
                 </AreaChart>
               </ResponsiveContainer>
             </article>
