@@ -1,20 +1,10 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, type FormEvent, useEffect, useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { AlertTriangle, CloudRain, Navigation, ThermometerSun, Wind } from 'lucide-react';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { buildRouteWeather, describeWeather, labelPlace, searchLocations, type GeocodeResult } from './weather';
+import type { GeocodeResult } from './weather';
+
+const WeatherCharts = lazy(() => import('./WeatherCharts'));
 
 const DEFAULT_FROM = 'Denver, CO';
 const DEFAULT_TO = 'Moab, UT';
@@ -30,6 +20,18 @@ type SubmittedRoute = {
   to: string;
   departAt: string;
   autoDepartAt: boolean;
+};
+
+export type ChartPoint = {
+  name: string;
+  eta: string;
+  temp: number;
+  feels: number;
+  high: number;
+  low: number;
+  precip: number;
+  cloud: number;
+  wind: number;
 };
 
 export function validateAppSearch(search: Record<string, unknown>): AppSearch {
@@ -55,8 +57,9 @@ export default function App() {
     : ['route-weather'];
   const routeWeatherQuery = useQuery({
     queryKey: routeWeatherKey,
-    queryFn: () => {
+    queryFn: async () => {
       if (!submittedRoute) throw new Error('Route search is missing.');
+      const { buildRouteWeather } = await import('./weather');
       return buildRouteWeather(submittedRoute.from, submittedRoute.to, parseDateTimeLocal(submittedRoute.departAt));
     },
     enabled: submittedRoute !== null,
@@ -212,65 +215,25 @@ export default function App() {
             </div>
           </article>
 
-          <section className="charts">
-            <article className="panel">
-              <h2>Temperature by ETA</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={chartData} margin={{ left: -12, right: 12, top: 18, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#25324a" />
-                  <XAxis dataKey="eta" stroke="#8ea0bd" />
-                  <YAxis stroke="#8ea0bd" />
-                  <Tooltip contentStyle={{ background: '#101827', border: '1px solid #2c3b57' }} />
-                  <Legend />
-                  <Line type="monotone" dataKey="temp" name="Temp F" stroke="#ffb86b" strokeWidth={3} dot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="feels" name="Feels F" stroke="#ff6b8a" strokeWidth={2} />
-                  <Line type="monotone" dataKey="high" name="Segment high" stroke="#ffd166" strokeDasharray="5 5" />
-                  <Line type="monotone" dataKey="low" name="Segment low" stroke="#6bdcff" strokeDasharray="5 5" />
-                </LineChart>
-              </ResponsiveContainer>
-            </article>
-
-            <article className="panel">
-              <h2>Precipitation risk</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={chartData} margin={{ left: -12, right: 12, top: 18, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="precip" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="5%" stopColor="#67e8f9" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#67e8f9" stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#25324a" />
-                  <XAxis dataKey="eta" stroke="#8ea0bd" />
-                  <YAxis stroke="#8ea0bd" domain={[0, 100]} />
-                  <Tooltip contentStyle={{ background: '#101827', border: '1px solid #2c3b57' }} />
-                  <Area type="monotone" dataKey="precip" name="Precip chance %" stroke="#67e8f9" fill="url(#precip)" strokeWidth={3} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </article>
-
-            <article className="panel">
-              <h2>Cloud cover</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={chartData} margin={{ left: -12, right: 12, top: 18, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="cloud-cover" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="5%" stopColor="#c4b5fd" stopOpacity={0.75} />
-                      <stop offset="95%" stopColor="#c4b5fd" stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#25324a" />
-                  <XAxis dataKey="eta" stroke="#8ea0bd" />
-                  <YAxis stroke="#8ea0bd" domain={[0, 100]} />
-                  <Tooltip contentStyle={{ background: '#101827', border: '1px solid #2c3b57' }} />
-                  <Area type="monotone" dataKey="cloud" name="Cloud cover %" stroke="#c4b5fd" fill="url(#cloud-cover)" strokeWidth={3} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </article>
-          </section>
+          <Suspense fallback={<ChartSkeleton />}>
+            <WeatherCharts data={chartData} />
+          </Suspense>
         </section>
       ) : null}
     </main>
+  );
+}
+
+function ChartSkeleton() {
+  return (
+    <section className="charts" aria-label="Loading charts" aria-busy="true">
+      {Array.from({ length: 3 }, (_, index) => (
+        <article className="panel skeleton-chart" key={index}>
+          <span className="skeleton-line skeleton-heading" />
+          <div className="skeleton-graph" aria-hidden="true" />
+        </article>
+      ))}
+    </section>
   );
 }
 
@@ -333,7 +296,8 @@ function LocationInput({ id, value, onChange, placeholder }: { id: string; value
     let isActive = true;
     const timeout = window.setTimeout(() => {
       setIsLoading(true);
-      searchLocations(value, controller.signal)
+      import('./weather')
+        .then(({ searchLocations }) => searchLocations(value, controller.signal))
         .then((results) => {
           if (isActive) setSuggestions(results);
         })
@@ -441,6 +405,21 @@ function formatDuration(minutes: number) {
   const hours = Math.floor(minutes / 60);
   const mins = Math.round(minutes % 60);
   return `${hours}h ${mins}m`;
+}
+
+function labelPlace(place: GeocodeResult) {
+  return [place.name, place.admin1, place.country].filter(Boolean).join(', ');
+}
+
+function describeWeather(code: number) {
+  if (code === 0) return 'Clear';
+  if ([1, 2, 3].includes(code)) return 'Clouds';
+  if ([45, 48].includes(code)) return 'Fog';
+  if ([51, 53, 55, 56, 57].includes(code)) return 'Drizzle';
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'Rain';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Snow';
+  if ([95, 96, 99].includes(code)) return 'Storms';
+  return 'Mixed';
 }
 
 function min(data: Array<Record<string, number | string>>, key: string) {
