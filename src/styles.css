@@ -120,6 +120,37 @@ input:focus {
   position: relative;
 }
 
+.location-input-with-action {
+  padding-right: 48px;
+}
+
+.location-current {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border-radius: 11px;
+  color: #c7d7ef;
+  background: rgba(148, 163, 184, 0.12);
+  transform: translateY(-50%);
+}
+
+.location-current:hover,
+.location-current:focus {
+  color: #07111f;
+  background: #67e8f9;
+}
+
+.location-current:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+  opacity: 0.55;
+}
+
 .date-field {
   position: relative;
 }

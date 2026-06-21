@@ -1,7 +1,7 @@
-import { lazy, Suspense, type FormEvent, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, type FormEvent, useEffect, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { AlertTriangle, CloudRain, Navigation, RotateCcw, ThermometerSun, Wind } from 'lucide-react';
+import { AlertTriangle, CloudRain, LocateFixed, Navigation, RotateCcw, ThermometerSun, Wind } from 'lucide-react';
 import type { GeocodeResult } from './weather';
 
 const WeatherCharts = lazy(() => import('./WeatherCharts'));
@@ -49,7 +49,7 @@ export default function App() {
   const [to, setTo] = useState(search.to ?? DEFAULT_TO);
   const [departAt, setDepartAt] = useState(search.departAt ?? currentDateTimeLocal());
   const [hasChangedDepartAt, setHasChangedDepartAt] = useState(search.departAt !== undefined);
-  const hasRequestedLocation = useRef(false);
+  const [locatingField, setLocatingField] = useState<'from' | 'to' | null>(null);
 
   const submittedRoute = search.from && search.to ? { from: search.from, to: search.to, departAt: search.departAt ?? departAt, autoDepartAt: search.departAt === undefined } : null;
   const routeWeatherKey = submittedRoute
@@ -70,17 +70,6 @@ export default function App() {
   const isAutoDepartAtRefresh = Boolean(submittedRoute?.autoDepartAt && routeWeather && routeWeatherQuery.isFetching && !routeWeatherQuery.isPlaceholderData);
   const isPlanningRoute = routeWeatherQuery.isFetching && !isAutoDepartAtRefresh;
   const showDashboardSkeleton = routeWeatherQuery.isPlaceholderData && routeWeatherQuery.isFetching;
-
-  useEffect(() => {
-    if (hasRequestedLocation.current || !navigator.geolocation) return;
-    hasRequestedLocation.current = true;
-
-    navigator.geolocation.getCurrentPosition((position) => {
-      const { latitude, longitude } = position.coords;
-      const label = `Current location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
-      setFrom((current) => (current === DEFAULT_FROM ? label : current));
-    });
-  }, []);
 
   useEffect(() => {
     setFrom(search.from ?? DEFAULT_FROM);
@@ -124,6 +113,22 @@ export default function App() {
     });
   }
 
+  function useCurrentLocation(field: 'from' | 'to') {
+    if (!canUseGeolocation()) return;
+
+    setLocatingField(field);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const label = `Current location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+        if (field === 'from') setFrom(label);
+        else setTo(label);
+        setLocatingField(null);
+      },
+      () => setLocatingField(null),
+    );
+  }
+
   const chartData = routeWeather?.points.map((point) => ({
     name: point.label,
     eta: formatTime(point.eta),
@@ -151,11 +156,25 @@ export default function App() {
         <form className="route-card" onSubmit={submit}>
           <label>
             Start
-            <LocationInput id="from-location" value={from} onChange={setFrom} placeholder="Denver, CO" />
+            <LocationInput
+              id="from-location"
+              value={from}
+              onChange={setFrom}
+              placeholder="Denver, CO"
+              onUseCurrentLocation={() => useCurrentLocation('from')}
+              isLocating={locatingField === 'from'}
+            />
           </label>
           <label>
             Destination
-            <LocationInput id="to-location" value={to} onChange={setTo} placeholder="Moab, UT" />
+            <LocationInput
+              id="to-location"
+              value={to}
+              onChange={setTo}
+              placeholder="Moab, UT"
+              onUseCurrentLocation={() => useCurrentLocation('to')}
+              isLocating={locatingField === 'to'}
+            />
           </label>
           <label>
             Departure
@@ -303,7 +322,21 @@ function DashboardSkeleton() {
   );
 }
 
-function LocationInput({ id, value, onChange, placeholder }: { id: string; value: string; onChange: (value: string) => void; placeholder: string }) {
+function LocationInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+  onUseCurrentLocation,
+  isLocating = false,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  onUseCurrentLocation?: () => void;
+  isLocating?: boolean;
+}) {
   const [suggestions, setSuggestions] = useState<GeocodeResult[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -347,6 +380,7 @@ function LocationInput({ id, value, onChange, placeholder }: { id: string; value
     <div className="location-field">
       <input
         id={id}
+        className={onUseCurrentLocation ? 'location-input-with-action' : undefined}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onFocus={(event) => {
@@ -362,6 +396,19 @@ function LocationInput({ id, value, onChange, placeholder }: { id: string; value
         role="combobox"
         required
       />
+      {onUseCurrentLocation ? (
+        <button
+          aria-label="Use current location"
+          className="location-current"
+          disabled={isLocating || !canUseGeolocation()}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={onUseCurrentLocation}
+          title="Use current location"
+          type="button"
+        >
+          <LocateFixed size={15} aria-hidden="true" />
+        </button>
+      ) : null}
       {showSuggestions ? (
         <div className="location-suggestions" id={`${id}-suggestions`} role="listbox">
           {isLoading ? <div className={`location-status${suggestions.length > 0 ? ' location-status-floating' : ''}`}>Searching...</div> : null}
@@ -440,6 +487,10 @@ function formatDuration(minutes: number) {
 
 function labelPlace(place: GeocodeResult) {
   return [place.name, place.admin1, place.country].filter(Boolean).join(', ');
+}
+
+function canUseGeolocation() {
+  return typeof navigator !== 'undefined' && Boolean(navigator.geolocation);
 }
 
 function describeWeather(code: number) {
