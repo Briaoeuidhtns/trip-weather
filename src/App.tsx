@@ -94,9 +94,16 @@ export default function App() {
 
     const updateDepartAt = () => setDepartAt(currentDateTimeLocal());
     updateDepartAt();
-    const interval = window.setInterval(updateDepartAt, 30_000);
+    let interval: number | undefined;
+    const timeout = window.setTimeout(() => {
+      updateDepartAt();
+      interval = window.setInterval(updateDepartAt, 60_000);
+    }, msUntilNextMinute());
 
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearTimeout(timeout);
+      if (interval !== undefined) window.clearInterval(interval);
+    };
   }, [hasChangedDepartAt]);
 
   useEffect(() => {
@@ -381,6 +388,11 @@ function formatTime(date: Date) {
 
 function currentDateTimeLocal() {
   return formatDateTimeLocal(new Date());
+}
+
+function msUntilNextMinute() {
+  const now = new Date();
+  return 60_000 - now.getSeconds() * 1000 - now.getMilliseconds();
 }
 
 function formatDateTimeLocal(date: Date) {
