@@ -1,0 +1,7 @@
+node_modules
+dist
+.pnpm-home
+.direnv
+.playwright-mcp
+*.tsbuildinfo
+*.log
