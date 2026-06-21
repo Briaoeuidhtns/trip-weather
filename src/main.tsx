@@ -14,7 +14,10 @@ const indexRoute = createRoute({
   component: App,
   validateSearch: validateAppSearch,
 });
-const router = createRouter({ routeTree: rootRoute.addChildren([indexRoute]) });
+const router = createRouter({
+  routeTree: rootRoute.addChildren([indexRoute]),
+  basepath: import.meta.env.BASE_URL.replace(/\/$/, ''),
+});
 
 declare module '@tanstack/react-router' {
   interface Register {
