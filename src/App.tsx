@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { AlertTriangle, CloudRain, Navigation, ThermometerSun, Wind } from 'lucide-react';
 import {
@@ -60,9 +60,13 @@ export default function App() {
       return buildRouteWeather(submittedRoute.from, submittedRoute.to, parseDateTimeLocal(submittedRoute.departAt));
     },
     enabled: submittedRoute !== null,
+    placeholderData: keepPreviousData,
   });
   const routeWeather = routeWeatherQuery.data ?? null;
   const error = routeWeatherQuery.error instanceof Error ? routeWeatherQuery.error.message : '';
+  const isAutoDepartAtRefresh = Boolean(submittedRoute?.autoDepartAt && routeWeather && routeWeatherQuery.isFetching && !routeWeatherQuery.isPlaceholderData);
+  const isPlanningRoute = routeWeatherQuery.isFetching && !isAutoDepartAtRefresh;
+  const showDashboardSkeleton = routeWeatherQuery.isPlaceholderData && routeWeatherQuery.isFetching;
 
   useEffect(() => {
     if (hasRequestedLocation.current || !navigator.geolocation) return;
@@ -155,7 +159,7 @@ export default function App() {
               required
             />
           </label>
-          <button disabled={routeWeatherQuery.isFetching}>{routeWeatherQuery.isFetching ? 'Planning route...' : 'Show route weather'}</button>
+          <button disabled={isPlanningRoute}>{isPlanningRoute ? 'Planning route...' : 'Show route weather'}</button>
           <p className="source-note">Uses Open-Meteo forecasts and the public OSRM demo router.</p>
         </form>
       </section>
@@ -166,7 +170,9 @@ export default function App() {
         </div>
       ) : null}
 
-      {routeWeather && chartData ? (
+      {showDashboardSkeleton ? <DashboardSkeleton /> : null}
+
+      {!showDashboardSkeleton && routeWeather && chartData ? (
         <section className="dashboard">
           <div className="summary-grid">
             <Metric icon={<Navigation />} label="Route" value={`${Math.round(routeWeather.totalMiles)} mi`} detail={`${formatDuration(routeWeather.totalMinutes)} total`} />
@@ -265,6 +271,49 @@ export default function App() {
         </section>
       ) : null}
     </main>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <section className="dashboard dashboard-skeleton" aria-label="Loading route weather" aria-busy="true">
+      <div className="summary-grid">
+        {Array.from({ length: 4 }, (_, index) => (
+          <article className="metric skeleton-card" key={index}>
+            <span className="skeleton-line skeleton-icon" />
+            <span className="skeleton-line skeleton-label" />
+            <span className="skeleton-line skeleton-value" />
+            <span className="skeleton-line skeleton-detail" />
+          </article>
+        ))}
+      </div>
+
+      <article className="panel route-overview skeleton-panel">
+        <div>
+          <span className="skeleton-line skeleton-label" />
+          <span className="skeleton-line skeleton-heading" />
+        </div>
+        <div className="route-table-wrap skeleton-table" aria-hidden="true">
+          {Array.from({ length: 5 }, (_, index) => (
+            <div className="skeleton-row" key={index}>
+              <span className="skeleton-line" />
+              <span className="skeleton-line" />
+              <span className="skeleton-line" />
+              <span className="skeleton-line" />
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <section className="charts">
+        {Array.from({ length: 3 }, (_, index) => (
+          <article className="panel skeleton-chart" key={index}>
+            <span className="skeleton-line skeleton-heading" />
+            <div className="skeleton-graph" aria-hidden="true" />
+          </article>
+        ))}
+      </section>
+    </section>
   );
 }
 

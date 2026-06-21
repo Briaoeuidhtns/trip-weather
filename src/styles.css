@@ -320,6 +320,89 @@ button:disabled {
   gap: 22px;
 }
 
+.dashboard-skeleton {
+  pointer-events: none;
+}
+
+.skeleton-card,
+.skeleton-panel,
+.skeleton-chart {
+  overflow: hidden;
+  position: relative;
+}
+
+.skeleton-line,
+.skeleton-graph {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.12), rgba(103, 232, 249, 0.24), rgba(148, 163, 184, 0.12));
+  background-size: 240% 100%;
+  animation: skeleton-pulse 1.35s ease-in-out infinite;
+}
+
+.skeleton-icon {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 18px;
+  border-radius: 14px;
+}
+
+.skeleton-label {
+  width: 36%;
+  height: 13px;
+}
+
+.skeleton-value {
+  width: 62%;
+  height: 30px;
+  margin-top: 10px;
+}
+
+.skeleton-detail {
+  width: 82%;
+  height: 15px;
+  margin-top: 14px;
+}
+
+.skeleton-heading {
+  width: min(360px, 74%);
+  height: 32px;
+  margin-top: 16px;
+}
+
+.skeleton-table {
+  display: grid;
+  gap: 1px;
+  padding: 10px 0;
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: 1.35fr 0.75fr 1fr 0.55fr;
+  gap: 18px;
+  padding: 13px 16px;
+}
+
+.skeleton-row .skeleton-line {
+  height: 16px;
+}
+
+.skeleton-graph {
+  height: 300px;
+  margin-top: 20px;
+  border-radius: 18px;
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
 .recharts-default-tooltip,
 .recharts-tooltip-label,
 .recharts-tooltip-item {
