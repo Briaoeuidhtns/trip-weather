@@ -33,7 +33,7 @@ type ForecastResponse = {
 };
 
 const METERS_PER_MILE = 1609.344;
-const MAX_FORECAST_POINTS = 9;
+const MAX_FORECAST_POINTS = 25;
 
 export function labelPlace(place: GeocodeResult) {
   return [place.name, place.admin1, place.country].filter(Boolean).join(', ');
@@ -134,12 +134,14 @@ function sampleRoute(route: OsrmRoute, departAt: Date): RoutePoint[] {
   const coordinates = route.geometry.coordinates;
   const segmentLengths = coordinates.slice(1).map((coord, index) => distanceMeters(coordinates[index], coord));
   const totalGeometryDistance = segmentLengths.reduce((sum, value) => sum + value, 0);
-  const sampleCount = Math.min(MAX_FORECAST_POINTS, Math.max(4, Math.ceil(route.duration / 7200) + 2));
+  const sampleCount = Math.min(MAX_FORECAST_POINTS, Math.max(4, Math.ceil(route.duration / 1200) + 1));
 
   return Array.from({ length: sampleCount }, (_, index) => {
     const ratio = sampleCount === 1 ? 0 : index / (sampleCount - 1);
     const targetDistance = totalGeometryDistance * ratio;
     const coordinate = coordinateAtDistance(coordinates, segmentLengths, targetDistance);
+    const bearingStart = coordinateAtDistance(coordinates, segmentLengths, Math.max(0, targetDistance - 400));
+    const bearingEnd = coordinateAtDistance(coordinates, segmentLengths, Math.min(totalGeometryDistance, targetDistance + 400));
     const durationMinutes = (route.duration / 60) * ratio;
 
     return {
@@ -149,8 +151,19 @@ function sampleRoute(route: OsrmRoute, departAt: Date): RoutePoint[] {
       distanceMiles: (route.distance / METERS_PER_MILE) * ratio,
       eta: new Date(departAt.getTime() + durationMinutes * 60_000),
       durationMinutes,
+      bearing: bearingDegrees(bearingStart, bearingEnd),
     };
   });
+}
+
+function bearingDegrees(a: [number, number], b: [number, number]) {
+  const lat1 = toRadians(a[1]);
+  const lat2 = toRadians(b[1]);
+  const deltaLon = toRadians(b[0] - a[0]);
+  const y = Math.sin(deltaLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLon);
+
+  return normalizeDegrees((Math.atan2(y, x) * 180) / Math.PI);
 }
 
 function coordinateAtDistance(coordinates: [number, number][], segmentLengths: number[], targetDistance: number) {
@@ -209,6 +222,9 @@ async function fetchForecast(point: RoutePoint): Promise<ForecastResponse> {
 function mergeWeather(point: RoutePoint, forecast: ForecastResponse, segmentStart: Date): WeatherPoint {
   const hourIndex = closestIndex(forecast.hourly.time, point.eta);
   const [segmentLow, segmentHigh] = temperatureRange(forecast, segmentStart, point.eta, hourIndex);
+  const sun = solarPosition(point.lat, point.lon, point.eta);
+  const sunExposure = forecast.hourly.is_day[hourIndex] === 1 ? forecast.hourly.shortwave_radiation[hourIndex] : 0;
+  const sunDirection = relativeSunDirection(point.bearing, sun.azimuth);
 
   return {
     ...point,
@@ -219,12 +235,63 @@ function mergeWeather(point: RoutePoint, forecast: ForecastResponse, segmentStar
     cloudCover: forecast.hourly.cloud_cover[hourIndex],
     isDay: forecast.hourly.is_day[hourIndex] === 1,
     shortwaveRadiation: forecast.hourly.shortwave_radiation[hourIndex],
-    sunExposure: forecast.hourly.is_day[hourIndex] === 1 ? forecast.hourly.shortwave_radiation[hourIndex] : 0,
+    sunExposure,
+    sunAzimuth: sun.azimuth,
+    sunElevation: sun.elevation,
+    sunDirection,
+    glareRisk: glareRisk(point.bearing, sun.azimuth, sun.elevation, sunExposure),
     windSpeed: forecast.hourly.wind_speed_10m[hourIndex],
     weatherCode: forecast.hourly.weather_code[hourIndex],
     segmentHigh,
     segmentLow,
   };
+}
+
+function solarPosition(lat: number, lon: number, date: Date) {
+  const dayOfYear = Math.floor((Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) - Date.UTC(date.getUTCFullYear(), 0, 0)) / 86_400_000);
+  const minutes = date.getUTCHours() * 60 + date.getUTCMinutes() + date.getUTCSeconds() / 60;
+  const gamma = (2 * Math.PI / 365) * (dayOfYear - 1 + (minutes / 60 - 12) / 24);
+  const equationOfTime = 229.18 * (0.000075 + 0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma) - 0.014615 * Math.cos(2 * gamma) - 0.040849 * Math.sin(2 * gamma));
+  const declination = 0.006918 - 0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma) - 0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma) - 0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
+  const trueSolarTime = modulo(minutes + equationOfTime + 4 * lon, 1440);
+  const hourAngle = toRadians(trueSolarTime / 4 - 180);
+  const latitude = toRadians(lat);
+  const zenith = Math.acos(Math.sin(latitude) * Math.sin(declination) + Math.cos(latitude) * Math.cos(declination) * Math.cos(hourAngle));
+  const azimuth = normalizeDegrees((Math.atan2(Math.sin(hourAngle), Math.cos(hourAngle) * Math.sin(latitude) - Math.tan(declination) * Math.cos(latitude)) * 180) / Math.PI + 180);
+
+  return { azimuth, elevation: 90 - (zenith * 180) / Math.PI };
+}
+
+function relativeSunDirection(bearing: number, sunAzimuth: number) {
+  const relative = signedAngleDifference(sunAzimuth, bearing);
+  const absolute = Math.abs(relative);
+
+  if (absolute <= 45) return 'Ahead';
+  if (absolute >= 135) return 'Behind';
+  return relative < 0 ? 'Driver side' : 'Passenger side';
+}
+
+function glareRisk(bearing: number, sunAzimuth: number, sunElevation: number, sunExposure: number) {
+  if (sunElevation <= 0 || sunExposure <= 0) return 0;
+
+  const forwardAngle = Math.abs(signedAngleDifference(sunAzimuth, bearing));
+  const facingSunFactor = forwardAngle > 60 ? 0 : (60 - forwardAngle) / 60;
+  const lowSunFactor = sunElevation <= 10 ? 1 : Math.max(0, (35 - sunElevation) / 25);
+  const exposureFactor = Math.min(1, sunExposure / 800);
+
+  return Math.round(100 * facingSunFactor * lowSunFactor * exposureFactor);
+}
+
+function signedAngleDifference(a: number, b: number) {
+  return modulo(a - b + 180, 360) - 180;
+}
+
+function normalizeDegrees(value: number) {
+  return modulo(value, 360);
+}
+
+function modulo(value: number, divisor: number) {
+  return ((value % divisor) + divisor) % divisor;
 }
 
 function temperatureRange(forecast: ForecastResponse, start: Date, end: Date, fallbackIndex: number): [number, number] {

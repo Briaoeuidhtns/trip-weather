@@ -75,7 +75,7 @@ export default function WeatherCharts({ data }: WeatherChartsProps) {
       </article>
 
       <article className="panel">
-        <h2>Sun exposure</h2>
+        <h2>Sun exposure and glare</h2>
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={data} margin={{ left: -12, right: 12, top: 18, bottom: 0 }}>
             <defs>
@@ -83,12 +83,19 @@ export default function WeatherCharts({ data }: WeatherChartsProps) {
                 <stop offset="5%" stopColor="#facc15" stopOpacity={0.8} />
                 <stop offset="95%" stopColor="#facc15" stopOpacity={0.05} />
               </linearGradient>
+              <linearGradient id="glare-risk" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="5%" stopColor="#fb7185" stopOpacity={0.7} />
+                <stop offset="95%" stopColor="#fb7185" stopOpacity={0.03} />
+              </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#25324a" />
             <XAxis dataKey="eta" stroke="#8ea0bd" />
-            <YAxis stroke="#8ea0bd" />
+            <YAxis yAxisId="sun" stroke="#8ea0bd" />
+            <YAxis yAxisId="glare" orientation="right" stroke="#8ea0bd" domain={[0, 100]} />
             <Tooltip contentStyle={{ background: '#101827', border: '1px solid #2c3b57' }} />
-            <Area type="monotone" dataKey="sun" name="Sun W/m2" stroke="#facc15" fill="url(#sun-exposure)" strokeWidth={3} />
+            <Legend />
+            <Area yAxisId="sun" type="monotone" dataKey="sun" name="Sun W/m2" stroke="#facc15" fill="url(#sun-exposure)" strokeWidth={3} />
+            <Area yAxisId="glare" type="monotone" dataKey="glare" name="Forward glare %" stroke="#fb7185" fill="url(#glare-risk)" strokeWidth={3} />
           </AreaChart>
         </ResponsiveContainer>
       </article>

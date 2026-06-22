@@ -32,6 +32,7 @@ export type ChartPoint = {
   precip: number;
   cloud: number;
   sun: number;
+  glare: number;
   wind: number;
 };
 
@@ -140,6 +141,7 @@ export default function App() {
     precip: point.precipitationProbability,
     cloud: point.cloudCover,
     sun: Math.round(point.sunExposure),
+    glare: point.glareRisk,
     wind: Math.round(point.windSpeed),
   }));
 
@@ -225,6 +227,7 @@ export default function App() {
             <Metric icon={<Navigation />} label="Route" value={`${Math.round(routeWeather.totalMiles)} mi`} detail={`${formatDuration(routeWeather.totalMinutes)} total`} />
             <Metric icon={<ThermometerSun />} label="Temperature range" value={`${min(chartData, 'low')} - ${max(chartData, 'high')} F`} detail="Segment lows and highs along route" />
             <Metric icon={<Sun />} label="Peak sun" value={`${max(chartData, 'sun')} W/m2`} detail="Forecast sunlight at route ETAs" />
+            <Metric icon={<Sun />} label="Peak glare" value={`${max(chartData, 'glare')}%`} detail="Low forward sun risk" />
             <Metric icon={<CloudRain />} label="Peak precip chance" value={`${max(chartData, 'precip')}%`} detail="At estimated segment arrival" />
             <Metric icon={<Wind />} label="Peak wind" value={`${max(chartData, 'wind')} mph`} detail="Hourly wind near route points" />
           </div>
@@ -243,6 +246,7 @@ export default function App() {
                     <th scope="col">Forecast</th>
                     <th scope="col">Temp</th>
                     <th scope="col">Rain</th>
+                    <th scope="col">Sun</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -253,6 +257,7 @@ export default function App() {
                       <td>{describeWeather(point.weatherCode)}</td>
                       <td>{Math.round(point.temperature)} F</td>
                       <td>{point.precipitationProbability}%</td>
+                      <td>{point.sunDirection}, {point.glareRisk}% glare</td>
                     </tr>
                   ))}
                 </tbody>

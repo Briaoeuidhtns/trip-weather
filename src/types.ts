@@ -8,6 +8,7 @@ export type RoutePoint = Coordinate & {
   distanceMiles: number;
   eta: Date;
   durationMinutes: number;
+  bearing: number;
 };
 
 export type WeatherPoint = RoutePoint & {
@@ -19,6 +20,10 @@ export type WeatherPoint = RoutePoint & {
   isDay: boolean;
   shortwaveRadiation: number;
   sunExposure: number;
+  sunAzimuth: number;
+  sunElevation: number;
+  sunDirection: string;
+  glareRisk: number;
   windSpeed: number;
   weatherCode: number;
   segmentHigh: number;
