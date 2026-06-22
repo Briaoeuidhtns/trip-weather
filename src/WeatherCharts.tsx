@@ -73,6 +73,25 @@ export default function WeatherCharts({ data }: WeatherChartsProps) {
           </AreaChart>
         </ResponsiveContainer>
       </article>
+
+      <article className="panel">
+        <h2>Sun exposure</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <AreaChart data={data} margin={{ left: -12, right: 12, top: 18, bottom: 0 }}>
+            <defs>
+              <linearGradient id="sun-exposure" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="5%" stopColor="#facc15" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#facc15" stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#25324a" />
+            <XAxis dataKey="eta" stroke="#8ea0bd" />
+            <YAxis stroke="#8ea0bd" />
+            <Tooltip contentStyle={{ background: '#101827', border: '1px solid #2c3b57' }} />
+            <Area type="monotone" dataKey="sun" name="Sun W/m2" stroke="#facc15" fill="url(#sun-exposure)" strokeWidth={3} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </article>
     </section>
   );
 }

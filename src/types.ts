@@ -16,6 +16,9 @@ export type WeatherPoint = RoutePoint & {
   precipitationProbability: number;
   precipitation: number;
   cloudCover: number;
+  isDay: boolean;
+  shortwaveRadiation: number;
+  sunExposure: number;
   windSpeed: number;
   weatherCode: number;
   segmentHigh: number;
